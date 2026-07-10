@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Kinetic Structure</title>
+    <!-- 引入 p5.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@100;300;400;500&display=swap');
+
+        :root {
+            --bg-color: rgb(243, 240, 230);
+            --text-color: #050505;
+            --accent-color: #ff4500;
+            --border-color: rgba(0, 0, 0, 0.08);
+            --text-muted: #7c7c7c;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'JetBrains Mono', 'PingFang SC', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* 全局框架 */
+        .page-wrapper {
+            position: relative;
+            z-index: 2;
+            width: 100vw;
+            height: 100vh;
+            display: grid;
+            grid-template-columns: 80px 1fr 100px;
+        }
+
+        /* --- 左侧边栏 --- */
+        .sidebar {
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 0;
+            justify-content: space-between;
+        }
+
+        .menu-btn {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            cursor: pointer;
+        }
+
+        .menu-btn span {
+            width: 22px;
+            height: 2px;
+            background-color: var(--text-color);
+        }
+
+        .nav-dots {
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+            align-items: center;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border: 1px solid #999;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .dot.active {
+            border-color: var(--text-color);
+            background-color: var(--text-color);
+        }
+
+        /* --- 主内容区 --- */
+        .main-container {
+            display: grid;
+            grid-template-rows: auto 1fr 140px;
+            border-right: 1px solid var(--border-color);
+        }
+
+        .hero-header {
+            padding: 60px 80px 40px 80px;
+        }
+
+        .tag-product {
+            display: inline-flex;
+            align-items: center;
+            background: #000;
+            color: #fff;
+            font-size: 11px;
+            padding: 4px 8px;
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+
+        .tag-product .orange-box {
+            color: var(--accent-color);
+            font-weight: bold;
+        }
+
+        .main-title {
+            font-size: 68px;
+            font-weight: 400;
+            line-height: 1.05;
+            letter-spacing: -2px;
+        }
+
+        /* 核心展示区 */
+        .center-stage {
+            display: grid;
+            grid-template-columns: 420px 1fr;
+            position: relative;
+        }
+
+        /* 左侧文案细化 */
+        .info-panel {
+            padding: 0 0 0 80px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            position: relative;
+        }
+
+        .info-panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 80px;
+            width: 12px;
+            height: 12px;
+            background-color: var(--accent-color);
+        }
+
+        .deploy-text {
+            font-size: 15px;
+            color: var(--text-color);
+            margin-top: 24px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 12px;
+            width: 85%;
+            line-height: 1.4;
+        }
+
+        .feature-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .feature-item {
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(0, 0, 0, 0.04);
+            padding: 4px 10px;
+            width: max-content;
+            color: #333;
+        }
+
+        /* 交互提示器 */
+        .interaction-hint-box {
+            margin-top: 20px;
+            border: 1px dashed rgba(0, 0, 0, 0.15);
+            width: 85%;
+            padding: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 12px;
+            color: var(--text-muted);
+            letter-spacing: 0.5px;
+        }
+
+        .hint-status-dot {
+            width: 6px;
+            height: 6px;
+            background-color: var(--text-muted);
+            border-radius: 50%;
+            animation: hintPulse 2s infinite ease-in-out;
+        }
+
+        .interaction-hint-box.active {
+            border-color: var(--accent-color);
+            color: var(--text-color);
+            background-color: rgba(255, 69, 0, 0.03);
+        }
+        .interaction-hint-box.active .hint-status-dot {
+            background-color: var(--accent-color);
+            animation: none;
+        }
+
+        @keyframes hintPulse {
+            0% { opacity: 0.3; }
+            50% { opacity: 1; }
+            100% { opacity: 0.3; }
+        }
+
+        /* 右侧 p5.js Canvas 挂载容器 */
+        .canvas-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            cursor: crosshair;
+        }
+
+        /* 使用 CSS 实现的左下角签名，完美对齐原装置排版 */
+        .css-signature {
+            position: absolute;
+            bottom: 40px;
+            left: 45px;
+            font-family: 'Georgia', serif;
+            font-size: 20px;
+            color: #414146;
+            transform: rotate(-0.12rad); /* 还原原图签名微弱的倾斜度 */
+            user-select: none;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* --- 底部极细浅色网格区 --- */
+        .footer-area {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding: 0 60px 40px 80px;
+            position: relative;
+            background-image: 
+                linear-gradient(to right, rgba(0, 0, 0, 0.02) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(0, 0, 0, 0.02) 1px, transparent 1px);
+            background-size: 8px 8px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .branding-logo {
+            font-size: 28px;
+            font-weight: 100;
+            letter-spacing: 14px;
+            color: rgba(0, 0, 0, 0.08);
+            user-select: none;
+            line-height: 1;
+        }
+
+        .btn-get-started {
+            background: #000;
+            color: #fff;
+            border: none;
+            padding: 16px 32px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            transition: background 0.2s ease;
+        }
+
+        .btn-get-started:hover {
+            background: #222;
+        }
+
+        /* --- 右侧悬浮图标区 --- */
+        .right-edge {
+            position: relative;
+        }
+
+        .arrow-indicator {
+            position: absolute;
+            bottom: 140px; 
+            left: -25px;
+            width: 50px;
+            height: 50px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            color: var(--text-muted);
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="page-wrapper">
+        
+        <!-- 1. 左侧边栏 -->
+        <aside class="sidebar">
+            <div class="menu-btn">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+            <div class="nav-dots">
+                <div class="dot active"></div>
+                <div class="dot"></div>
+                <div class="dot"></div>
+                <div class="dot"></div>
+            </div>
+            <div></div>
+        </aside>
+
+        <!-- 2. 中央核心区 -->
+        <main class="main-container">
+            
+            <header class="hero-header">
+                <div class="tag-product">
+                    <span class="orange-box">#01</span> KINETIC SYSTEM <span>+</span>
+                </div>
+                <h1 class="main-title">Dynamic Kinetic<br>Structure</h1>
+            </header>
+
+            <!-- 渲染交互层 -->
+            <section class="center-stage">
+                <div class="info-panel">
+                    <p class="deploy-text">Interactive curve generative structure via curve-matched physics algorithm.</p>
+                    <ul class="feature-list">
+                        <li class="feature-item"><span>↗</span> Per-Layer Curve Calibrated</li>
+                        <li class="feature-item"><span>↗</span> Decoupled Motion Control</li>
+                        <li class="feature-item"><span>↗</span> Drag-Accelerated Kinetic Flow</li>
+                    </ul>
+
+                    <div class="interaction-hint-box" id="ui-hint-box">
+                        <div class="hint-status-dot"></div>
+                        <span id="ui-hint-text">[ 提示: 长按鼠标以激活加速旋转 ]</span>
+                    </div>
+                </div>
+
+                <!-- p5.js 画布容器 -->
+                <div class="canvas-container" id="canvas-holder">
+                    <!-- 通过 CSS 渲染的纯文本艺术签名 -->
+                    <div class="css-signature">From Fang.</div>
+                </div>
+            </section>
+
+            <!-- 底部 -->
+            <footer class="footer-area">
+                <div class="branding-logo">PER-LAYER CREATIVE</div>
+                <button class="btn-get-started">
+                    Trigger Velocity <span>▱</span>
+                </button>
+            </footer>
+
+        </main>
+
+        <!-- 3. 右侧指示器 -->
+        <div class="right-edge">
+            <div class="arrow-indicator">↓</div>
+        </div>
+
+    </div>
+
+    <!-- p5.js 代码与UI状态控制脚本 -->
+    <script>
+        let treeLayers = [];
+        let particles = []; 
+
+        let angle = 0;          
+        let angleVel = 0;       
+        let maxVel = 0.06;      
+        let friction = 0.96;    
+        let dynamicBend = 0;    
+
+        let hintBox, hintText;
+
+        function setup() {
+            hintBox = document.getElementById('ui-hint-box');
+            hintText = document.getElementById('ui-hint-text');
+
+            let container = document.getElementById('canvas-holder');
+            let canvas = createCanvas(container.offsetWidth, container.offsetHeight);
+            canvas.parent('canvas-holder'); 
+
+            treeLayers = [
+                { 
+                    layerIdx: 0,
+                    topBaseY: 60, topWidthX: 20,
+                    bottomBaseY: 180, bottomWidthX: 110, 
+                    count: 18,
+                    texts: ["returning light", "born in silence", "turning", "Christmas"] 
+                },
+                { 
+                    layerIdx: 1,
+                    topBaseY: 130, topWidthX: 20,
+                    bottomBaseY: 320, bottomWidthX: 190, 
+                    count: 26, 
+                    texts: ["Sol Invictus", "carries a seed", "born in silence", "The Magi"] 
+                },
+                { 
+                    layerIdx: 2,
+                    topBaseY: 230, topWidthX: 20,
+                    bottomBaseY: 520, bottomWidthX: 260, 
+                    count: 36, 
+                    texts: ["Sol Invictus", "carries a seed", "The Magi", "to the world", "Christmas", "Letters", "Dance has come"] 
+                }
+            ];
+
+            for (let layer of treeLayers) {
+                layer.lines = [];
+                for (let i = 0; i < layer.count; i++) {
+                    let basePhase = map(i, 0, layer.count, 0, TWO_PI); 
+                    layer.lines.push({
+                        basePhase: basePhase,
+                        text: random(layer.texts),
+                        textPos: random(0.55, 0.88), 
+                        textRot: random(-0.2, 0.2)   
+                    });
+                }
+            }
+        }
+
+        function draw() {
+            if (mouseIsPressed) {
+                angleVel = lerp(angleVel, maxVel, 0.04); 
+                if (random(1) < 0.75) triggerParticles();
+                
+                if(hintBox && !hintBox.classList.contains('active')) {
+                    hintBox.classList.add('active');
+                    hintText.innerText = "[ 状态: 物理引擎加速中... ]";
+                }
+            } else {
+                angleVel *= friction; 
+                
+                if(hintBox && hintBox.classList.contains('active')) {
+                    hintBox.classList.remove('active');
+                    hintText.innerText = "[ 提示: 长按鼠标以激活加速旋转 ]";
+                }
+            }
+            angle += angleVel;
+
+            if (!mouseIsPressed && angleVel < 0.005 && random(1) < 0.15) {
+                triggerParticles();
+            }
+
+            dynamicBend = lerp(dynamicBend, angleVel, 0.1);
+
+            background(243, 240, 230);
+            let cx = width / 2;
+
+            stroke(30, 30, 30);
+            strokeWeight(22);
+            line(cx, 520, cx, 660);
+            
+            for (let l = 0; l < treeLayers.length; l++) {
+                let layer = treeLayers[l];
+                let lagAmount = dynamicBend * 36.0; 
+
+                for (let lineObj of layer.lines) {
+                    let topPhase = lineObj.basePhase + angle;
+                    let tailPhase = topPhase - lagAmount; 
+                    if (sin(tailPhase) < 0) {
+                        drawPerLayerPerfectCurve(cx, layer, lineObj, topPhase, lagAmount, true); 
+                    }
+                }
+                
+                for (let lineObj of layer.lines) {
+                    let topPhase = lineObj.basePhase + angle;
+                    let tailPhase = topPhase - lagAmount; 
+                    if (sin(tailPhase) >= 0) {
+                        drawPerLayerPerfectCurve(cx, layer, lineObj, topPhase, lagAmount, false);
+                    }
+                }
+                
+                drawConeApex(cx, layer.topBaseY);
+            }
+
+            updateAndDrawParticles();
+            // 原 drawSignature() 逻辑已被完全移除
+        }
+
+        function drawPerLayerPerfectCurve(cx, layer, lineObj, topPhase, lagAmount, isBack) {
+            let startX = cx + cos(topPhase) * layer.topWidthX;
+            let startY = layer.topBaseY;
+            let tailPhase = topPhase - lagAmount;
+            let endX = cx + cos(tailPhase) * layer.bottomWidthX;
+            let endY = layer.bottomBaseY;
+
+            let ctrlX1, ctrlY1, ctrlX2, ctrlY2;
+            let tBend = map(dynamicBend, 0, maxVel, 0, 1, true);
+            let targetCtrlX1, targetCtrlX2;
+            
+            if (layer.layerIdx === 0) {
+                let leadPhase1 = topPhase - lagAmount * 0.22;
+                targetCtrlX1 = cx + cos(leadPhase1) * layer.bottomWidthX * 0.45; 
+                let leadPhase2 = topPhase - lagAmount * 0.6;
+                targetCtrlX2 = cx + cos(leadPhase2) * layer.bottomWidthX * 0.58;
+            } 
+            else if (layer.layerIdx === 1) {
+                let leadPhase1 = topPhase - lagAmount * 0.15;
+                targetCtrlX1 = cx + cos(leadPhase1) * layer.bottomWidthX * 0.36;
+                let leadPhase2 = topPhase - lagAmount * 0.65;
+                targetCtrlX2 = cx + cos(leadPhase2) * layer.bottomWidthX * 0.64;
+            } 
+            else {
+                let leadPhase1 = topPhase - lagAmount * 0.12;
+                targetCtrlX1 = cx + cos(leadPhase1) * layer.bottomWidthX * 0.32; 
+                let leadPhase2 = topPhase - lagAmount * 0.72;
+                targetCtrlX2 = cx + cos(leadPhase2) * layer.bottomWidthX * 0.72; 
+            }
+
+            ctrlX1 = lerp(lerp(startX, endX, 0.33), targetCtrlX1, tBend);
+            ctrlY1 = startY + (endY - startY) * 0.33;
+            ctrlX2 = lerp(lerp(startX, endX, 0.66), targetCtrlX2, tBend);
+            ctrlY2 = startY + (endY - startY) * 0.66;
+
+            if (isBack) {
+                stroke(55, 100, 200, 55);  
+                strokeWeight(1.0);
+            } else {
+                stroke(35, 90, 220, 180);  
+                strokeWeight(1.8);
+            }
+            noFill();
+            
+            bezier(startX, startY, ctrlX1, ctrlY1, ctrlX2, ctrlY2, endX, endY);
+            
+            let t = lineObj.textPos;
+            let paperX = bezierPoint(startX, ctrlX1, ctrlX2, endX, t);
+            let paperY = bezierPoint(startY, ctrlY1, ctrlY2, endY, t);
+            
+            drawNewspaperTag(paperX, paperY, lineObj.text, lineObj.textRot + (angleVel * 4.5), isBack ? 85 : 230);
+        }
+
+        function triggerParticles() {
+            let layerIndex = floor(random(treeLayers.length));
+            let layer = treeLayers[layerIndex];
+            let lineObj = random(layer.lines);
+            
+            particles.push({
+                layerIndex: layerIndex,
+                basePhase: lineObj.basePhase,
+                slideProgress: 0,          
+                slideSpeed: random(0.015, 0.03), 
+                isLaunched: false,         
+                pos: createVector(0, 0),   
+                vel: createVector(0, 0),   
+                alpha: 255,
+                size: random(3, 4.5)
+            });
+        }
+
+        function updateAndDrawParticles() {
+            let cx = width / 2;
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                let layer = treeLayers[p.layerIndex];
+
+                let topPhase = p.basePhase + angle;
+                let lagAmount = dynamicBend * 35.0; 
+                let tailPhase = topPhase - lagAmount;
+
+                let startX = cx + cos(topPhase) * layer.topWidthX;
+                let startY = layer.topBaseY;
+                let endX = cx + cos(tailPhase) * layer.bottomWidthX;
+                let endY = layer.bottomBaseY;
+                
+                let targetCtrlX1, targetCtrlX2;
+                if (layer.layerIdx === 0) {
+                    let leadPhase1 = topPhase - lagAmount * 0.22;
+                    targetCtrlX1 = cx + cos(leadPhase1) * layer.bottomWidthX * 0.45;
+                    let leadPhase2 = topPhase - lagAmount * 0.6;
+                    targetCtrlX2 = cx + cos(leadPhase2) * layer.bottomWidthX * 0.58;
+                } else if (layer.layerIdx === 1) {
+                    let leadPhase1 = topPhase - lagAmount * 0.15;
+                    targetCtrlX1 = cx + cos(leadPhase1) * layer.bottomWidthX * 0.36;
+                    let leadPhase2 = topPhase - lagAmount * 0.65;
+                    targetCtrlX2 = cx + cos(leadPhase2) * layer.bottomWidthX * 0.64;
+                } else {
+                    let leadPhase1 = topPhase - lagAmount * 0.12;
+                    targetCtrlX1 = cx + cos(leadPhase1) * layer.bottomWidthX * 0.32;
+                    let leadPhase2 = topPhase - lagAmount * 0.72;
+                    targetCtrlX2 = cx + cos(leadPhase2) * layer.bottomWidthX * 0.72;
+                }
+
+                let tBend = map(dynamicBend, 0, maxVel, 0, 1, true);
+                let ctrlX1 = lerp(lerp(startX, endX, 0.33), targetCtrlX1, tBend);
+                let ctrlY1 = startY + (endY - startY) * 0.33;
+                let ctrlX2 = lerp(lerp(startX, endX, 0.66), targetCtrlX2, tBend);
+                let ctrlY2 = startY + (endY - startY) * 0.66;
+
+                if (!p.isLaunched) {
+                    p.slideProgress += p.slideSpeed;
+                    p.pos.x = bezierPoint(startX, ctrlX1, ctrlX2, endX, p.slideProgress);
+                    p.pos.y = bezierPoint(startY, ctrlY1, ctrlY2, endY, p.slideProgress);
+
+                    if (p.slideProgress >= 1) {
+                        p.isLaunched = true;
+                        if (dynamicBend > 0.005) {
+                            let tangentX = bezierTangent(startX, ctrlX1, ctrlX2, endX, 1);
+                            let tangentY = bezierTangent(startY, ctrlY1, ctrlY2, endY, 1);
+                            p.vel = createVector(tangentX, tangentY).normalize().mult(angleVel * 135 + random(1, 2.5));
+                        } else {
+                            p.vel = createVector(0, random(1, 2)); 
+                        }
+                    }
+                } else {
+                    p.pos.add(p.vel);
+                    p.vel.y += 0.2; 
+                    if (dynamicBend > 0.005) p.vel.mult(0.97); 
+                    p.alpha -= 6;     
+                }
+
+                noStroke();
+                fill(70, 135, 245, p.alpha);
+                ellipse(p.pos.x, p.pos.y, p.size);
+                fill(70, 135, 245, p.alpha * 0.3);
+                ellipse(p.pos.x - p.vel.x * 0.35, p.pos.y - p.vel.y * 0.35, p.size * 0.7);
+
+                if (p.alpha <= 0 || p.pos.y > height) particles.splice(i, 1);
+            }
+        }
+
+        function drawConeApex(x, y) {
+            push();
+            noStroke();
+            fill(35, 35, 35); 
+            triangle(x, y - 25, x - 28, y + 1, x + 28, y + 1);
+            stroke(90, 90, 90, 120);
+            strokeWeight(1);
+            for(let i=0; i<8; i++) {
+                line(random(x-20, x+20), y, x, y-25);
+            }
+            pop();
+        }
+
+        function drawNewspaperTag(x, y, txt, localRot, alphaValue) {
+            push();
+            translate(x, y);
+            rotate(localRot);
+            rectMode(CENTER);
+            noStroke();
+            fill(252, 252, 248, alphaValue);
+            let txtWidth = textWidth(txt) + 14;
+            rect(0, 0, txtWidth, 18);
+            fill(40, 40, 45, alphaValue);
+            textFont('Courier New');
+            textSize(10.5);
+            textAlign(CENTER, CENTER);
+            text(txt, 0, -1);
+            stroke(200, alphaValue * 0.6);
+            strokeWeight(0.5);
+            line(-txtWidth/2, -8, -txtWidth/2, 8);
+            line(txtWidth/2, -8, txtWidth/2, 8);
+            pop();
+        }
+
+        function windowResized() {
+            let container = document.getElementById('canvas-holder');
+            resizeCanvas(container.offsetWidth, container.offsetHeight);
+        }
+    </script>
+</body>
+</html>
