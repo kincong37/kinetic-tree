@@ -20,6 +20,12 @@
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            /* 【核心修复1】全网页防触选菜单，彻底杜绝手机长按弹窗复制 */
+            -webkit-touch-callout: none; /* 禁用 iOS 长按呼出系统菜单 */
+            -webkit-user-select: none;   /* 禁用 Safari/微信 选中文本 */
+            -moz-user-select: none;      /* Firefox */
+            -ms-user-select: none;       /* IE/Edge */
+            user-select: none;           /* 标准防选中 */
         }
 
         body {
@@ -52,7 +58,6 @@
             align-items: center;
             padding: 40px 0;
             justify-content: space-between;
-            user-select: none;
         }
 
         /* 笑脸区域容器 */
@@ -70,7 +75,7 @@
             color: var(--text-color);
         }
 
-        /* 新增：打招呼 hi~ 的克制动效设计 */
+        /* 打招呼 hi~ */
         .greeting-text {
             font-size: 11px;
             font-weight: 400;
@@ -80,7 +85,6 @@
             animation: greetingLoop 6s infinite ease-in-out;
         }
 
-        /* 呼吸隐藏循环动效 */
         @keyframes greetingLoop {
             0%, 100% { opacity: 0; transform: translateX(-4px); }
             10%, 40% { opacity: 1; transform: translateX(0px); }
@@ -94,7 +98,6 @@
             align-items: center;
         }
 
-        /* 纯静态 UI 装饰点 */
         .dot {
             width: 8px;
             height: 8px;
@@ -117,7 +120,6 @@
 
         .hero-header {
             padding: 60px 80px 40px 80px;
-            user-select: none;
         }
 
         .tag-product {
@@ -181,7 +183,6 @@
             padding-bottom: 12px;
             width: 85%;
             line-height: 1.4;
-            user-select: none;
         }
 
         .feature-list {
@@ -189,7 +190,6 @@
             display: flex;
             flex-direction: column;
             gap: 10px;
-            user-select: none;
         }
 
         .feature-item {
@@ -215,7 +215,6 @@
             font-size: 12px;
             color: var(--text-muted);
             letter-spacing: 0.5px;
-            user-select: none;
         }
 
         .hint-status-dot {
@@ -244,8 +243,6 @@
             font-weight: 400;
             color: #414146;
             letter-spacing: -0.5px;
-            user-select: none;
-            pointer-events: none;
         }
 
         @keyframes hintPulse {
@@ -254,7 +251,7 @@
             100% { opacity: 0.3; }
         }
 
-        /* 【保留交互】p5.js Canvas 挂载容器 */
+        /* 右侧 p5.js Canvas 挂载容器 */
         .canvas-container {
             width: 100%;
             height: 100%;
@@ -277,7 +274,6 @@
                 linear-gradient(to bottom, rgba(0, 0, 0, 0.02) 1px, transparent 1px);
             background-size: 8px 8px;
             border-top: 1px solid var(--border-color);
-            user-select: none;
         }
 
         .branding-logo {
@@ -288,7 +284,7 @@
             line-height: 1;
         }
 
-        /* 【保留交互】Trigger Velocity 触发按钮 */
+        /* Trigger Velocity 触发按钮 */
         .btn-get-started {
             background: #000;
             color: #fff;
@@ -310,10 +306,8 @@
         /* --- 右侧悬浮图标区 --- */
         .right-edge {
             position: relative;
-            user-select: none;
         }
 
-        /* 纯展示静态标签 */
         .arrow-indicator {
             position: absolute;
             bottom: 140px; 
@@ -329,7 +323,7 @@
             color: var(--text-muted);
         }
 
-        /* 📱 移动端自适应与高度防裁剪 */
+        /* 📱 移动端自适应排版 */
         @media (max-width: 900px) {
             body {
                 overflow-y: auto; 
@@ -477,19 +471,17 @@
         let dynamicBend = 0;    
 
         let hintBox, hintText, triggerBtn;
-        let isButtonPressedMode = false; // 用于判定是否按下了按钮触发加速
+        let isButtonPressedMode = false; 
 
         function setup() {
             hintBox = document.getElementById('ui-hint-box');
             hintText = document.getElementById('ui-hint-text');
             triggerBtn = document.getElementById('btn-trigger');
 
-            // 按钮事件绑定：点击或长按 Trigger 按钮同样可以驱动旋转
             if(triggerBtn) {
                 triggerBtn.addEventListener('mousedown', () => { isButtonPressedMode = true; });
                 triggerBtn.addEventListener('mouseup', () => { isButtonPressedMode = false; });
                 triggerBtn.addEventListener('mouseleave', () => { isButtonPressedMode = false; });
-                // 适配手机端按钮触控
                 triggerBtn.addEventListener('touchstart', (e) => { e.preventDefault(); isButtonPressedMode = true; });
                 triggerBtn.addEventListener('touchend', () => { isButtonPressedMode = false; });
             }
@@ -500,6 +492,15 @@
             
             let canvas = createCanvas(w, h);
             canvas.parent('canvas-holder'); 
+
+            // 【核心修复2】阻止 Canvas 原生 DOM 节点的长按上下文菜单事件，绝杀移动端“长按复制”弹窗
+            let canvasEl = canvas.elt;
+            if(canvasEl) {
+                canvasEl.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    return false;
+                });
+            }
 
             initTreeLayers();
         }
@@ -557,7 +558,6 @@
         }
 
         function draw() {
-            // 合并判断：鼠标在画布按下 OR 长按了 Trigger Velocity 按钮
             if (mouseIsPressed || isButtonPressedMode) {
                 angleVel = lerp(angleVel, maxVel, 0.04); 
                 if (random(1) < 0.75) triggerParticles();
